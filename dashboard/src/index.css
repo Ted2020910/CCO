@@ -1,0 +1,3 @@
+/* index.css — 全局 reset，由 App.css 的 :root 变量覆盖主题色 */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
