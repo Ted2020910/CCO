@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { ApiResponse, Session, SubAgent } from '../shared/types.js';
 import { SessionManager } from '../session/index.js';
-import { deleteSession, saveSession } from '../storage/session-store.js';
+import { deleteSession, saveSession, listSessionIds } from '../storage/session-store.js';
 
 export function createApiRouter(sessionManager: SessionManager): Router {
   const router = Router();
@@ -14,6 +14,13 @@ export function createApiRouter(sessionManager: SessionManager): Router {
    */
   router.get('/sessions', (req, res) => {
     try {
+      // Sync in-memory sessions with disk: remove sessions whose files were deleted
+      const diskIds = new Set(listSessionIds());
+      const removed = sessionManager.syncWithDisk(diskIds);
+      if (removed.length > 0) {
+        console.log(`[CCO] Pruned ${removed.length} session(s) missing from disk: ${removed.join(', ')}`);
+      }
+
       const days = Number(req.query['days'] ?? 30);
       const sessions = sessionManager.getAllSessions();
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();

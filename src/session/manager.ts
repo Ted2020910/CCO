@@ -267,6 +267,25 @@ export class SessionManager {
     return this.sessions.delete(sessionId);
   }
 
+  // ── 磁盘同步 ────────────────────────────────────────────────────────────────
+
+  /**
+   * 将内存中的 session 列表与磁盘上实际存在的文件同步。
+   * 移除内存中已不存在于磁盘的 session（用户手动删除了 JSON 文件）。
+   * @param diskSessionIds 当前磁盘上存在的 session ID 列表
+   * @returns 被移除的 session ID 列表
+   */
+  syncWithDisk(diskSessionIds: Set<string>): string[] {
+    const removed: string[] = [];
+    for (const sessionId of this.sessions.keys()) {
+      if (!diskSessionIds.has(sessionId)) {
+        this.sessions.delete(sessionId);
+        removed.push(sessionId);
+      }
+    }
+    return removed;
+  }
+
   // ── 更新时间戳 ──────────────────────────────────────────────────────────────
 
   touch(session: Session): void {
