@@ -25,4 +25,6 @@ Thumbs.db
 # Environment
 .env
 .env.*
-.claude/
+# Claude Code (only keep settings.local.json)
+.claude/*
+!.claude/settings.local.json
