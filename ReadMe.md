@@ -17,7 +17,6 @@ When you use [Claude Code](https://docs.anthropic.com/en/docs/claude-code), it m
 - **How Claude Code structures its conversations** — when it starts new sessions, how it manages message history
 - **When and why sub-agents are spawned** — what triggers them, what prompts they receive, how they nest
 - **How context compression works** — when Claude Code decides to compress, what gets archived
-- **Token usage patterns** — how many tokens each request consumes, cache hit rates, model distribution
 - **The full agent call tree** — a visual map of main agent → sub-agents → nested sub-agents
 
 This gives you transparency into Claude Code's decision-making process, helping you understand its behavior patterns, optimize your usage, and debug unexpected outcomes.
@@ -242,7 +241,6 @@ CCO 是一个轻量级的本地代理服务，旨在帮助你**观察和理解 C
 - **Claude Code 如何组织对话** — 何时开始新会话、如何管理消息历史
 - **子智能体何时被创建以及为什么** — 什么触发了它们、它们收到了什么提示词、如何嵌套
 - **上下文压缩如何工作** — Claude Code 何时决定压缩、什么内容被归档
-- **Token 使用模式** — 每个请求消耗多少 Token、缓存命中率、模型分布
 - **完整的智能体调用树** — 主智能体 → 子智能体 → 嵌套子智能体的可视化地图
 
 这让你对 Claude Code 的决策过程拥有透明的观察能力，帮助你理解它的行为模式、优化使用方式、以及调试意外结果。
