@@ -1,8 +1,0 @@
-{
-  "version": "1.0.0",
-  "port": 9527,
-  "dataDir": "D:\\personal coding projects\\cco\\data",
-  "sessionsDir": "D:\\personal coding projects\\cco\\data\\sessions",
-  "apiBaseUrl": "http://oai-to-ato.zhihuishu.com",
-  "logLevel": "info"
-}

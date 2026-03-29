@@ -12,12 +12,33 @@ export function todayString(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** CCO 数据目录：相对于本文件所在位置动态计算（dist/shared/utils.js → ../../data） */
-export function getCcoHome(): string {
+// ── 可配置数据目录 ─────────────────────────────────────────────────────────
+// 通过 setCcoHome() 在启动时设置；未设置时回退到项目根 ./data
+let _dataDir: string | null = null;
+
+/** 获取项目根目录（基于编译产物位置推算） */
+function getProjectRoot(): string {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  // dist/shared/utils.js → 向上两级到项目根目录 → 再进入 data/
-  return path.resolve(__dirname, '../../data');
+  // dist/shared/utils.js → 向上两级到项目根目录
+  return path.resolve(__dirname, '../..');
+}
+
+/**
+ * 设置 CCO 数据目录（在 CLI init 时调用）
+ * @param dir 绝对路径或相对于 cwd 的路径
+ */
+export function setCcoHome(dir: string): void {
+  _dataDir = path.resolve(dir);
+}
+
+/**
+ * 获取 CCO 数据目录
+ * 优先级：setCcoHome() 设置值 > 默认 <project-root>/data
+ */
+export function getCcoHome(): string {
+  if (_dataDir) return _dataDir;
+  return path.join(getProjectRoot(), 'data');
 }
 
 /** 格式化 token 数量（如 1,234,567 → 1.23M） */
