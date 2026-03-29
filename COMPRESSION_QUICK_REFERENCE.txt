@@ -1,0 +1,154 @@
+================================================================================
+CCO COMPRESSION FLOW - QUICK REFERENCE
+================================================================================
+
+QUESTION 1: Session Interface & Compression State
+================================================================================
+Session Fields:
+  ✓ session_id
+  ✓ session_name (first user msg, max 10 chars)
+  ✓ main_agent → contains session_history_list (archive location)
+  ✓ created_at, updated_at, stats
+  ✗ NO compression_state field
+
+MainAgent has:
+  ✓ session_history_list: SessionHistoryEntry[]  ← Archives go here
+  ✓ sub_agents
+
+SessionHistoryEntry structure:
+  ✓ sys_prompt (old prompt)
+  ✓ messages (old messages)
+  ✓ archived_at (timestamp)
+
+ClassificationType enum:
+  'main_agent' | 'compression' | 'suggestion' | 'sub_agent_new' | 'sub_agent_continue' | 'unclassified'
+
+
+QUESTION 2: Compression Classification (Step 2)
+================================================================================
+WHERE DETECTED:
+  File: src/session/classifier.ts
+  Lines: 69-71
+
+DETECTION LOGIC:
+  1. Get last message from request
+  2. Check if lastText includes: "Your task is to create a detailed summary of the conversation so far"
+  3. If YES → return { type: 'compression', agent: session.main_agent }
+
+TIMING:
+  Happens in Step 2 - BEFORE sys_prompt/messages matching (Step 3)
+  Bypasses normal agent matching logic
+
+
+QUESTION 3: processResponseClassification Handles Compression
+================================================================================
+FILE: src/proxy/interceptor.ts, lines 324-386
+
+WHAT HAPPENS:
+  ✓ Stats updated: total_requests++, models_used[model]++
+  ✓ Timestamp: session.updated_at = now
+  ✓ Session persisted to disk
+  ✗ Summary NOT appended (activeAgent is null)
+  ✗ handleCompression() NOT called
+
+activeAgent STATUS:
+  NULL for compression (never set in processRequestClassification)
+  
+DATA AVAILABLE:
+  responseContent: AnthropicContentBlock[] 
+  = [{ 
+    type: 'text', 
+    text: '<analysis>...[full analysis]...</analysis>\n\n<summary>...[full summary]...</summary>'
+  }]
+
+
+QUESTION 4: What Does handleCompression() Do?
+================================================================================
+FILE: src/session/manager.ts, lines 227-246
+
+IMPLEMENTATION:
+  1. Create SessionHistoryEntry from current (sys_prompt, messages)
+  2. Push to session_history_list (archive)
+  3. Update current_sys_prompt = newSysPrompt (compressed version)
+  4. Clear current_messages = []
+
+IS IT CALLED?
+  ✗ NO - DEAD CODE
+  Never called by interceptor
+  Documented as TODO in docs/claude code 场景分析.md line 277
+
+
+QUESTION 5: SSE Response Parser & Summary Text
+================================================================================
+FUNCTION: parseSSEResponse() (src/proxy/interceptor.ts, 490-571)
+
+PROCESS:
+  1. Parse SSE events from stream
+  2. Accumulate text_delta events into single block
+  3. Build contentBlocks array
+  4. Return [{ type: 'text', text: '<analysis>...<summary>...</summary>' }]
+
+FOR COMPRESSION:
+  ✓ Single text block
+  ✓ Contains <analysis> and <summary> tags
+  ✓ No tool_use blocks (compression prompt says "do NOT use tools")
+
+QUESTION: Will summary be in contentBlocks as text block?
+  ✓ YES - Single text block containing entire summary
+
+
+QUESTION 6: Other References (Compression/Compact/Summary)
+================================================================================
+FOUND IN:
+  1. src/shared/types.ts - Type definitions (session_history_list, compression_count)
+  2. src/session/classifier.ts - Detection logic
+  3. src/proxy/interceptor.ts - Used by classifier
+  4. src/session/manager.ts - handleCompression() dead code
+  5. src/api/routes.ts - compression_count calculation (line 129)
+  6. dashboard/src/types/index.ts - Frontend types
+  7. docs/claude code 场景分析.md - Specification
+  8. docs/claude code逆向结果/压缩上下文的提示词.md - Full prompt
+
+FILES: 8 | DEAD CODE: 1 (handleCompression) | LINES: ~100 total
+
+
+================================================================================
+ARCHITECTURE SUMMARY
+================================================================================
+
+WORKING:
+  ✓ Compression detection (classifier.ts)
+  ✓ SSE parsing and summary extraction
+  ✓ Stats tracking
+  ✓ Session persistence
+  ✓ API exposure (compression_count)
+
+NOT WORKING:
+  ✗ Archival to session_history_list (handleCompression never called)
+  ✗ System prompt update
+  ✗ Message clearing
+  ✗ Integration into full compression cycle
+
+FLOW STATE:
+  Request → Classify (detect compression) ✓
+          → Upstream (get summary) ✓
+          → Parse response (extract text) ✓
+          → Update stats & save ✓
+          → Activate handleCompression() ✗ (MISSING)
+          → Archive old state ✗ (MISSING)
+          → Update prompt ✗ (MISSING)
+          → Clear messages ✗ (MISSING)
+
+
+================================================================================
+KEY INSIGHT
+================================================================================
+
+The compression system is 60% complete:
+- Correctly detects and processes compression requests
+- Correctly extracts and persists summary text
+- BUT: Never executes the archival/state-reset logic
+
+This is explicitly marked as TODO in the documentation.
+The handleCompression() function exists but is never called.
+

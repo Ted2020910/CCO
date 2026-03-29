@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getCcoHome, todayString } from '../shared/utils.js';
+import { getCcoHome } from '../shared/utils.js';
 import type { CcoConfig } from '../shared/types.js';
 
 const CONFIG_FILE = path.join(getCcoHome(), 'config.json');
@@ -8,7 +8,9 @@ const CONFIG_FILE = path.join(getCcoHome(), 'config.json');
 const DEFAULT_CONFIG: CcoConfig = {
   version: '1.0.0',
   port: 9527,
-  dataDir: path.join(getCcoHome(), 'data'),
+  dataDir: getCcoHome(),
+  sessionsDir: path.join(getCcoHome(), 'sessions'),
+  apiBaseUrl: 'https://api.anthropic.com',
   logLevel: 'info',
 };
 
@@ -31,10 +33,10 @@ export function writeConfig(config: Partial<CcoConfig>): void {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2), 'utf-8');
 }
 
-/** 获取数据目录（按日期分目录） */
-export function getDataDir(date?: string): string {
+/** 获取 session 存储目录 */
+export function getSessionsDir(): string {
   const config = readConfig();
-  return path.join(config.dataDir, date ?? todayString());
+  return config.sessionsDir;
 }
 
 function ensureDir(dir: string): void {

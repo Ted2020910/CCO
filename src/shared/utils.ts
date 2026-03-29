@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import path from 'path';
-import os from 'os';
+import { fileURLToPath } from 'url';
 
 /** 生成唯一 ID */
 export function generateId(): string {
@@ -12,9 +12,12 @@ export function todayString(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** 默认 CCO 主目录：~/.cco */
+/** CCO 数据目录：相对于本文件所在位置动态计算（dist/shared/utils.js → ../../data） */
 export function getCcoHome(): string {
-  return path.join(os.homedir(), '.cco');
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  // dist/shared/utils.js → 向上两级到项目根目录 → 再进入 data/
+  return path.resolve(__dirname, '../../data');
 }
 
 /** 格式化 token 数量（如 1,234,567 → 1.23M） */

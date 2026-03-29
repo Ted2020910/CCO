@@ -1,13 +1,34 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { interceptRequest } from './interceptor.js';
+import { interceptRequest, setSessionManager } from './interceptor.js';
 import { createApiRouter } from '../api/routes.js';
+import { SessionManager } from '../session/index.js';
+import { loadAllSessions } from '../storage/session-store.js';
+import { readConfig } from '../storage/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function createServer(port: number): ReturnType<typeof express.application.listen> {
   const app = express();
+
+  // ── 创建 SessionManager 并注入到 Interceptor ────────────────────────────────
+  const sessionManager = new SessionManager();
+
+  // 从持久化文件加载已有 Sessions
+  try {
+    const sessions = loadAllSessions();
+    for (const session of sessions) {
+      sessionManager.loadSession(session);
+    }
+    if (sessions.length > 0) {
+      console.log(`[CCO] Loaded ${sessions.length} sessions from disk`);
+    }
+  } catch (err) {
+    console.error('[CCO] Failed to load sessions:', err);
+  }
+
+  setSessionManager(sessionManager);
 
   // ── 基础中间件 ───────────────────────────────────────────────────────────────
   app.use(express.json({ limit: '50mb' }));
@@ -17,23 +38,31 @@ export function createServer(port: number): ReturnType<typeof express.applicatio
     res.json({ status: 'ok', version: '1.0.0', port });
   });
 
-  // ── REST API（给 Dashboard 用） ───────────────────────────────────────────────
-  app.use('/api', createApiRouter());
+  // ── REST API（给 Dashboard 用） ─────────────────────────────────────────────
+  app.use('/api', createApiRouter(sessionManager));
 
-  // ── 代理路由：/proxy/:sessionId/* ────────────────────────────────────────────
-  // 使用 express.Router 挂载通配路由，避免 Express 5 通配符问题
+  // ── 代理路由：/proxy/* ────────────────────────────────────────────────────
   const proxyRouter = express.Router();
+  const config = readConfig();
 
-  proxyRouter.post('/:sessionId/*', async (req, res) => {
-    const { sessionId } = req.params;
+  proxyRouter.post('{*path}', async (req, res) => {
+    // 从 metadata 中提取 session_id
+    let sessionId = 'unknown';
+    try {
+      const metadata = req.body?.metadata;
+      if (metadata?.user_id) {
+        const parsed = JSON.parse(metadata.user_id);
+        sessionId = parsed.session_id || 'unknown';
+      }
+    } catch {
+      // 如果解析失败，使用 unknown
+    }
 
-    // 获取 :sessionId 之后的路径部分
-    const afterSessionId = (req.params as unknown as Record<string, string | string[]>)[0] ?? '';
-    const rawPath = afterSessionId;
-    const apiPath = (Array.isArray(rawPath) ? rawPath[0] : rawPath) ?? '';
+    const rawPath = (req.params as Record<string, unknown>).path;
+    const apiPath = Array.isArray(rawPath) ? rawPath.join('/') : String(rawPath ?? '');
     const cleanPath = apiPath.startsWith('/') ? apiPath.slice(1) : apiPath;
 
-    const targetUrl = `https://api.anthropic.com/${cleanPath}`;
+    const targetUrl = `${config.apiBaseUrl}/${cleanPath}`;
 
     console.log(`[CCO] ${new Date().toISOString()} | session=${sessionId.slice(0, 8)}... | ${cleanPath}`);
 
@@ -42,12 +71,12 @@ export function createServer(port: number): ReturnType<typeof express.applicatio
 
   app.use('/proxy', proxyRouter);
 
-  // ── 托管 React Dashboard 静态文件 ────────────────────────────────────────────
+  // ── 托管 React Dashboard 静态文件 ──────────────────────────────────────────
   const dashboardDist = path.join(__dirname, '../../dashboard/dist');
   app.use(express.static(dashboardDist));
 
-  // SPA fallback：所有未匹配路由返回 index.html
-  app.get('*', (_req, res) => {
+  // SPA fallback
+  app.get('{*path}', (_req, res) => {
     const indexPath = path.join(dashboardDist, 'index.html');
     res.sendFile(indexPath, (err) => {
       if (err) {

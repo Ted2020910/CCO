@@ -1,10 +1,8 @@
 // Dashboard API 客户端
 import type {
   ApiResponse,
-  StatsResponse,
-  RequestRecord,
   SessionSummary,
-  DailyStats,
+  Session,
 } from '../types';
 
 const BASE = '/api';
@@ -16,33 +14,35 @@ async function get<T>(path: string): Promise<T> {
   return json.data as T;
 }
 
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { method: 'DELETE' });
+  const json: ApiResponse<T> = await res.json();
+  if (!json.success) throw new Error(json.error ?? 'API Error');
+  return json.data as T;
+}
+
+async function patch<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json: ApiResponse<T> = await res.json();
+  if (!json.success) throw new Error(json.error ?? 'API Error');
+  return json.data as T;
+}
+
 export const api = {
-  /** 总体统计 */
-  stats: () => get<StatsResponse>('/stats'),
-
-  /** 最近记录列表 */
-  records: (params?: { limit?: number; offset?: number; date?: string; sessionId?: string }) => {
-    const q = new URLSearchParams();
-    if (params?.limit)     q.set('limit',     String(params.limit));
-    if (params?.offset)    q.set('offset',    String(params.offset));
-    if (params?.date)      q.set('date',      params.date);
-    if (params?.sessionId) q.set('sessionId', params.sessionId);
-    return get<{ records: RequestRecord[]; total: number }>(`/records?${q}`);
-  },
-
-  /** 单条记录详情 */
-  record: (id: string) => get<RequestRecord>(`/records/${id}`),
-
   /** Session 列表 */
   sessions: (days = 30) => get<{ sessions: SessionSummary[] }>(`/sessions?days=${days}`),
 
-  /** 某 session 的所有记录 */
-  sessionRecords: (sessionId: string) =>
-    get<{ records: RequestRecord[] }>(`/sessions/${sessionId}/records`),
+  /** Session 详情（完整 agent 树） */
+  sessionDetail: (sessionId: string) => get<Session>(`/sessions/${sessionId}`),
 
-  /** 某天统计 */
-  daily: (date: string) => get<DailyStats>(`/daily/${date}`),
+  /** 删除 Session */
+  deleteSession: (sessionId: string) => del<{ deleted: boolean }>(`/sessions/${sessionId}`),
 
-  /** 所有有数据的日期 */
-  dates: () => get<{ dates: string[] }>('/dates'),
+  /** 重命名 Session */
+  renameSession: (sessionId: string, newName: string) =>
+    patch<{ session_id: string; session_name: string }>(`/sessions/${sessionId}`, { session_name: newName }),
 };

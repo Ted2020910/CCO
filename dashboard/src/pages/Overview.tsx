@@ -1,133 +1,77 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { LayoutDashboard } from 'lucide-react';
 import { api } from '../api/client';
-import type { StatsResponse } from '../types';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
+import { getCache, setCache } from '../hooks/useLocalCache';
+import type { SessionSummary } from '../types';
 
-function fmt(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
-function fmtCost(usd: number) {
-  return `$${usd.toFixed(4)}`;
-}
+const CACHE_KEY = 'overview-sessions';
 
 export default function Overview() {
-  const [stats, setStats] = useState<StatsResponse | null>(null);
-  const [loading, setLoading]  = useState(true);
-  const [error, setError]      = useState<string | null>(null);
+  const navigate = useNavigate();
+  // 懒初始化：优先从缓存恢复，避免白屏
+  const [sessions, setSessions] = useState<SessionSummary[]>(
+    () => getCache<SessionSummary[]>(CACHE_KEY) ?? []
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.stats()
-      .then(setStats)
+    api.sessions(30)
+      .then(d => {
+        setSessions(d.sessions);
+        setCache(CACHE_KEY, d.sessions); // 成功后写入缓存
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="loading">加载中...</div>;
-  if (error)   return <div className="error">⚠️ {error}</div>;
-  if (!stats)  return null;
+  // 有缓存时不阻塞渲染，直接显示缓存内容
+  const hasCachedData = sessions.length > 0;
+  if (loading && !hasCachedData) return <div className="loading">加载中...</div>;
+  if (error && !hasCachedData) return <div className="error">{error}</div>;
 
-  const { today, last7Days, allTime } = stats;
-
-  const chartData = last7Days.map(d => ({
-    date:    d.date.slice(5),   // MM-DD
-    requests: d.total_requests,
-    cost:    Number(d.total_cost_usd.toFixed(4)),
-    tokens:  d.total_input_tokens + d.total_output_tokens,
-  }));
+  const totalRequests = sessions.reduce((sum, s) => sum + s.stats.total_requests, 0);
 
   return (
     <div className="page">
-      <h1 className="page-title">📊 总览</h1>
+      <h1 className="page-title"><LayoutDashboard /> 总览</h1>
+      <p className="page-sub">最近 30 天概览</p>
 
-      {/* 今日统计卡片 */}
       <section>
-        <h2 className="section-title">今日</h2>
+        <h2 className="section-title">统计</h2>
         <div className="stat-grid">
-          <StatCard label="请求次数" value={today.total_requests} />
-          <StatCard label="输入 Token" value={fmt(today.total_input_tokens)} />
-          <StatCard label="输出 Token" value={fmt(today.total_output_tokens)} />
-          <StatCard label="预计费用"  value={fmtCost(today.total_cost_usd)} accent />
-          <StatCard label="活跃 Session" value={today.sessions.length} />
+          <div className="stat-card">
+            <div className="stat-label">Session 数</div>
+            <div className="stat-value">{sessions.length}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">总请求数</div>
+            <div className="stat-value">{totalRequests}</div>
+          </div>
         </div>
       </section>
 
-      {/* 累计统计 */}
-      <section>
-        <h2 className="section-title">累计</h2>
-        <div className="stat-grid">
-          <StatCard label="总请求次数" value={allTime.total_requests} />
-          <StatCard label="总 Session 数" value={allTime.total_sessions} />
-          <StatCard label="总费用" value={fmtCost(allTime.total_cost_usd)} accent />
-        </div>
-      </section>
-
-      {/* 近 7 天图表 */}
-      {chartData.length > 0 && (
+      {sessions.length > 0 && (
         <section>
-          <h2 className="section-title">近 7 天趋势</h2>
-          <div className="chart-row">
-            <div className="chart-card">
-              <h3>每日请求数</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="requests" fill="#6366f1" radius={[4,4,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="chart-card">
-              <h3>每日费用 (USD)</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(v) => [`$${v}`, 'Cost']} />
-                  <Bar dataKey="cost" fill="#10b981" radius={[4,4,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <h2 className="section-title">最近会话</h2>
+          <div className="recent-sessions">
+            {sessions.slice(0, 5).map(s => (
+              <div
+                key={s.session_id}
+                className="recent-session-row"
+                onClick={() => navigate(`/sessions/${s.session_id}`)}
+              >
+                <span className="session-name">{s.session_name || '未命名会话'}</span>
+                <span className="session-date">
+                  {new Date(s.updated_at).toLocaleString('zh-CN')}
+                </span>
+                <span className="session-requests">{s.stats.total_requests} 请求</span>
+              </div>
+            ))}
           </div>
         </section>
       )}
-
-      {/* 今日使用的模型 */}
-      {Object.keys(today.models).length > 0 && (
-        <section>
-          <h2 className="section-title">今日模型分布</h2>
-          <div className="model-list">
-            {Object.entries(today.models)
-              .sort((a, b) => b[1] - a[1])
-              .map(([model, count]) => (
-                <div key={model} className="model-row">
-                  <span className="model-name">{model}</span>
-                  <span className="model-count">{count} 次</span>
-                </div>
-              ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function StatCard({ label, value, accent }: {
-  label: string;
-  value: string | number;
-  accent?: boolean;
-}) {
-  return (
-    <div className={`stat-card${accent ? ' stat-card--accent' : ''}`}>
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
     </div>
   );
 }

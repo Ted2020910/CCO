@@ -16,6 +16,7 @@ program
   .command('init')
   .description('初始化并启动 CCO 代理服务')
   .option('-p, --port <port>', '指定端口', '9527')
+  .option('-u, --url <url>', '指定 Anthropic API 地址（支持中转）', 'https://api.anthropic.com')
   .action(initCommand);
 
 program
@@ -32,14 +33,15 @@ program
 
 program.addHelpText('after', `
 ${chalk.bold('使用示例：')}
-  ${chalk.cyan('cco init')}              启动代理服务（默认端口 9527）
-  ${chalk.cyan('cco init -p 8080')}      使用自定义端口
-  ${chalk.cyan('cco status')}            查看服务状态
-  ${chalk.cyan('cco open')}              打开 Dashboard
+  ${chalk.cyan('cco init')}                           启动代理服务（默认端口 9527）
+  ${chalk.cyan('cco init -p 8080')}                   使用自定义端口
+  ${chalk.cyan('cco init -u https://your-api.com')}  使用自定义 API 地址（中转服务）
+  ${chalk.cyan('cco status')}                         查看服务状态
+  ${chalk.cyan('cco open')}                           打开 Dashboard
 
 ${chalk.bold('接入 Claude Code：')}
-  在 ${chalk.yellow('~/.claude/settings.json')} 中设置：
-  ${chalk.gray('{ "env": { "ANTHROPIC_BASE_URL": "http://localhost:9527/proxy/<session-id>" } }')}
+  在项目的 ${chalk.yellow('.claude/settings.local.json')} 中设置：
+  ${chalk.gray('{ "env": { "ANTHROPIC_BASE_URL": "http://localhost:9527/proxy" } }')}
 `);
 
 program.parse();

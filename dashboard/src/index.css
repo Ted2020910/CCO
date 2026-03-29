@@ -1,3 +1,91 @@
-/* index.css — 全局 reset，由 App.css 的 :root 变量覆盖主题色 */
-*, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Dark Theme ───────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:          #1A1714;
+  --surface:     #252220;
+  --surface2:    #312D2A;
+  --surface3:    #3C3834;
+  --border:      #46403A;
+  --border2:     #585048;
+  --text:        #EDE5D8;
+  --text-dim:    #8A7A66;
+  --text-muted:  #5A5044;
+  --accent:      #E8956A;
+  --accent2:     #D97757;
+  --accent-dim:  rgba(232,149,106,0.12);
+  --accent-glow: rgba(232,149,106,0.22);
+  --green:       #34D399;
+  --green-dim:   rgba(52,211,153,0.10);
+  --red:         #F87171;
+  --red-dim:     rgba(248,113,113,0.10);
+  --yellow:      #FBBF24;
+  --yellow-dim:  rgba(251,191,36,0.10);
+  --purple:      #A78BFA;
+  --blue:        #60A5FA;
+  --orange:      #FB923C;
+  --shadow:      0 1px 4px rgba(0,0,0,0.55), 0 0 0 1px rgba(237,229,216,0.03);
+  --shadow-lg:   0 4px 20px rgba(0,0,0,0.65), 0 0 0 1px rgba(237,229,216,0.04);
+  --shadow-glow: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(232,149,106,0.4), 0 0 20px rgba(232,149,106,0.15);
+}
+
+/* ─── Warm Theme ───────────────────────────────────────────────────────────── */
+[data-theme="warm"] {
+  --bg:          #F2EDE3;
+  --surface:     #FDFCFA;
+  --surface2:    #EDE5D8;
+  --surface3:    #E3D9C9;
+  --border:      #DAD0BC;
+  --border2:     #C7BAA4;
+  --text:        #1A1008;
+  --text-dim:    #7A6A52;
+  --text-muted:  #A89278;
+  --accent:      #C4603D;
+  --accent2:     #A84E30;
+  --accent-dim:  rgba(196,96,61,0.08);
+  --accent-glow: rgba(196,96,61,0.16);
+  --green:       #16A34A;
+  --green-dim:   rgba(22,163,74,0.08);
+  --red:         #DC2626;
+  --red-dim:     rgba(220,38,38,0.08);
+  --yellow:      #D97706;
+  --yellow-dim:  rgba(217,119,6,0.10);
+  --purple:      #7C3AED;
+  --blue:        #2563EB;
+  --orange:      #EA580C;
+  --shadow:      0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-lg:   0 4px 20px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
+  --shadow-glow: 0 4px 20px rgba(0,0,0,0.10), 0 0 0 1px rgba(196,96,61,0.35), 0 0 20px rgba(196,96,61,0.12);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ─── Scrollbars ──────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
