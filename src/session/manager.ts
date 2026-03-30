@@ -22,6 +22,8 @@ export interface MatchResult {
 
 export class SessionManager {
   private sessions = new Map<string, Session>();
+  /** 已经至少落盘一次的 sessionId 集合，防止 syncWithDisk 误删还在流式处理中的新 session */
+  private persistedIds = new Set<string>();
 
   // ── 查询 ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +95,7 @@ export class SessionManager {
    */
   loadSession(session: Session): void {
     this.sessions.set(session.session_id, session);
+    this.persistedIds.add(session.session_id);
   }
 
   // ── Agent 匹配 ──────────────────────────────────────────────────────────────
@@ -264,6 +267,7 @@ export class SessionManager {
   // ── 删除 Session（内存） ──────────────────────────────────────────────────────
 
   removeSession(sessionId: string): boolean {
+    this.persistedIds.delete(sessionId);
     return this.sessions.delete(sessionId);
   }
 
@@ -272,18 +276,29 @@ export class SessionManager {
   /**
    * 将内存中的 session 列表与磁盘上实际存在的文件同步。
    * 移除内存中已不存在于磁盘的 session（用户手动删除了 JSON 文件）。
+   * 跳过尚未落盘的 session（正在流式处理中，还没来得及 saveSession）。
    * @param diskSessionIds 当前磁盘上存在的 session ID 列表
    * @returns 被移除的 session ID 列表
    */
   syncWithDisk(diskSessionIds: Set<string>): string[] {
     const removed: string[] = [];
     for (const sessionId of this.sessions.keys()) {
+      // 跳过从未落盘的 session —— 可能是刚创建还在流式处理中
+      if (!this.persistedIds.has(sessionId)) continue;
       if (!diskSessionIds.has(sessionId)) {
         this.sessions.delete(sessionId);
+        this.persistedIds.delete(sessionId);
         removed.push(sessionId);
       }
     }
     return removed;
+  }
+
+  /**
+   * 标记 session 已落盘（在 saveSession 之后调用）
+   */
+  markPersisted(sessionId: string): void {
+    this.persistedIds.add(sessionId);
   }
 
   // ── 更新时间戳 ──────────────────────────────────────────────────────────────

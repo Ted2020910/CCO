@@ -455,6 +455,7 @@ function processResponseClassification(
   // ── 持久化 Session 到磁盘 ──────────────────────────────────────────────────
   try {
     saveSession(session);
+    sessionManager.markPersisted(session.session_id);
   } catch (err) {
     console.error('[CCO] Failed to save session:', err);
   }
