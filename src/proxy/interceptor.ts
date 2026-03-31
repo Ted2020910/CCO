@@ -270,11 +270,13 @@ function processRequestClassification(
       }
       const mainAgent = session.main_agent;
 
-      // 压缩恢复：更新 sys_prompt（压缩后 sys_prompt 已清空，需要用新请求的 sys_prompt 恢复）
+      // 始终同步 sys_prompt（动态内容如 git status 每次请求都可能变化）
+      mainAgent.current_sys_prompt = sysPrompt;
+
+      // 压缩恢复：清除 pending 标记
       if (session.pending_compression_summary) {
-        mainAgent.current_sys_prompt = sysPrompt;
         delete session.pending_compression_summary;
-        console.log('[CCO] Compression recovery: sys_prompt updated, pending flag cleared');
+        console.log('[CCO] Compression recovery: pending flag cleared');
       }
 
       mainAgent.current_messages = cleanMessages;

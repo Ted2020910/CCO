@@ -40,7 +40,9 @@ export interface RequestForClassification {
  *     匹配某个子智能体 → sub_agent_continue
  *   Step 5: 是否有未完成的 Agent 工具调用？
  *     有 → 根据 prompt 参数匹配 → sub_agent_new
- *     没有 → unclassified
+ *     没有 → 继续 Step 6
+ *   Step 6: 兜底（带 tools 且 Step 4/5 都无法归属子智能体）
+ *     → main_agent（只可能是 sys_prompt 动态内容变化导致 Step 4 失败）
  */
 export function classifyRequest(
   session: Session | undefined,
@@ -127,12 +129,22 @@ export function classifyRequest(
         reason: `step5 new_sub(${parentResult.reason})`,
       };
     }
-    // Step 5 失败，附加原因
-    return { type: 'unclassified', reason: `step4 ${step4Reason} → step5 ${parentResult.reason}` };
+    // ── Step 6: 兜底 → 主智能体 ──────────────────────────────────────────────
+    // 带 tools 的请求只可能是主智能体或 general sub-agent
+    // general sub-agent 一定有 pending Agent 调用（Step 5 已排除）→ 只能是主智能体
+    return {
+      type: 'main_agent',
+      agent: session.main_agent,
+      reason: `step6 fallback_main(${step4Reason} → ${parentResult.reason})`,
+    };
   }
 
-  // 没有 firstMessageContent → Step 5 无法执行
-  return { type: 'unclassified', reason: `step4 ${step4Reason} → step5 no_user_message` };
+  // Step 6 兜底（无 firstMessageContent 时同理）
+  return {
+    type: 'main_agent',
+    agent: session.main_agent,
+    reason: `step6 fallback_main(${step4Reason} → no_user_message)`,
+  };
 }
 
 // ============================================================================
